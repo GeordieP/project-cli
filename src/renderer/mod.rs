@@ -71,6 +71,14 @@ pub fn start() {
             },
             UIMode::Insert => match c.unwrap() {
                 Key::Esc => normal_mode(&mut state),
+                Key::Backspace => {
+                    let mut new_term = state.search_term.clone();
+                    if new_term.len() > 0 {
+                        new_term.truncate(&state.search_term.len() - 1);
+                    }
+
+                    search_for(&mut state, new_term);
+                }
                 Key::Char(chr) => {
                     let new_term = format!("{}{}", &state.search_term, chr);
                     search_for(&mut state, new_term);
