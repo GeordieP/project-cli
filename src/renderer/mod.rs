@@ -196,29 +196,41 @@ mod components {
     pub fn search_line(mode: &UIMode, search_term: &String) -> String {
         let mode_indicator = if let UIMode::Insert = mode { "i" } else { "n" };
 
-        let search_term = if search_term.len() == 0 {
-            match mode {
-                UIMode::Insert => {
-                    format!(
-                        "{}type to search{}",
-                        termion::color::Fg(termion::color::LightBlack),
-                        termion::color::Fg(termion::color::Reset)
-                    )
-                }
-
-                UIMode::Normal => {
-                    format!(
-                        "{}press i to search{}",
-                        termion::color::Fg(termion::color::LightBlack),
-                        termion::color::Fg(termion::color::Reset)
-                    )
-                }
-            }
+        let placeholder = if search_term.len() > 0 {
+            format!("")
         } else {
-            search_term.clone()
+            match mode {
+                UIMode::Insert => format!(
+                    "{}type to search{}",
+                    termion::color::Fg(termion::color::LightBlack),
+                    termion::color::Fg(termion::color::Reset)
+                ),
+                UIMode::Normal => format!("press i to search"),
+            }
         };
 
-        format!("  [{}] {}", mode_indicator, search_term)
+        match mode {
+            UIMode::Insert => {
+                format!(
+                    "  [{}] {}{}{}{}",
+                    mode_indicator,
+                    termion::color::Fg(termion::color::Reset),
+                    search_term,
+                    placeholder,
+                    termion::color::Fg(termion::color::Reset)
+                )
+            }
+            UIMode::Normal => {
+                format!(
+                    "  [{}] {}{}{}{}",
+                    mode_indicator,
+                    termion::color::Fg(termion::color::LightBlack),
+                    search_term,
+                    placeholder,
+                    termion::color::Fg(termion::color::Reset)
+                )
+            }
+        }
     }
 
     pub fn selectable_list_item(selected: bool, list_item_label: &str) -> String {
