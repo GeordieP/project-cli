@@ -5,11 +5,12 @@ use termion::raw::IntoRawMode;
 
 pub enum UIMode {
     Normal,
-    Search(String),
+    Insert,
 }
 
 pub struct ScreenState {
     mode: UIMode,
+    search_term: String,
     selected_project_index: usize,
     projects: Vec<String>,
 }
@@ -18,6 +19,7 @@ impl ScreenState {
     pub fn new() -> Self {
         ScreenState {
             mode: UIMode::Normal,
+            search_term: "".to_string(),
             selected_project_index: 0,
             projects: vec![
                 "one".to_string(),
@@ -44,7 +46,7 @@ pub fn start() {
 
     // pad screen area to make sure we don't run off the end of the terminal
     // if we run off the end, screen clearing doesn't work right and each new render is printed starting on a new line
-    write_safe_area(&mut stdout, num_lines);
+    render_safe_area(&mut stdout, num_lines);
     // store initial cursor position so we can re-draw each screen state from that position
     // Y position is offset by the # of safe area lines
     let initial_cursor_pos = termion::cursor::DetectCursorPos::cursor_pos(&mut stdout).unwrap();
@@ -56,14 +58,25 @@ pub fn start() {
     render_state(&mut stdout, &state, initial_cursor_pos);
 
     for c in stdin.keys() {
-        match c.unwrap() {
-            Key::Char('k') | Key::Up => move_up_list(&mut state),
-            Key::Char('j') | Key::Down => move_down_list(&mut state),
-            Key::Char('q') => {
-                write!(stdout, "{}", termion::cursor::Show).unwrap();
-                break;
-            }
-            _ => {}
+        match &state.mode {
+            UIMode::Normal => match c.unwrap() {
+                Key::Char('k') | Key::Up => move_up_list(&mut state),
+                Key::Char('j') | Key::Down => move_down_list(&mut state),
+                Key::Char('i') | Key::Char('s') => search_for(&mut state, "".to_string()),
+                Key::Char('q') => {
+                    write!(stdout, "{}", termion::cursor::Show).unwrap();
+                    break;
+                }
+                _ => {}
+            },
+            UIMode::Insert => match c.unwrap() {
+                Key::Esc => normal_mode(&mut state),
+                Key::Char(chr) => {
+                    let new_term = format!("{}{}", &state.search_term, chr);
+                    search_for(&mut state, new_term);
+                }
+                _ => {}
+            },
         }
 
         render_state(&mut stdout, &state, initial_cursor_pos);
@@ -75,7 +88,7 @@ pub fn start() {
 
 // pub
 // -------------------------
-// mutating state
+// actions
 
 fn move_up_list(state: &mut ScreenState) {
     let new_index = if state.projects.len() == 0 {
@@ -102,7 +115,16 @@ fn move_down_list(state: &mut ScreenState) {
     state.selected_project_index = new_index;
 }
 
-// mutating state
+fn search_for(state: &mut ScreenState, search_term: String) {
+    state.mode = UIMode::Insert;
+    state.search_term = search_term;
+}
+
+fn normal_mode(state: &mut ScreenState) {
+    state.mode = UIMode::Normal;
+}
+
+// actions
 // -------------------------
 // rendering
 
@@ -115,34 +137,31 @@ fn render_state<W: Write>(stdout: &mut W, state: &ScreenState, initial_cursor_po
     )
     .unwrap();
 
-    write_header(stdout);
-    write_search_line(stdout, &state);
-    write_list_items(stdout, &state.projects, state.selected_project_index);
+    render_header(stdout);
+    render_search(stdout, &state);
+    render_list(stdout, &state);
 }
 
-fn write_line(stdout: &mut impl Write) {
-    write!(stdout, "\n\r").unwrap();
+fn render_header(stdout: &mut impl Write) {
+    write!(stdout, "  ---------- projects ----------\n\r",).unwrap();
 }
 
-fn write_header(stdout: &mut impl Write) {
-    write!(stdout, "  ---------- projects ----------",).unwrap();
-    write_line(stdout);
+fn render_search(stdout: &mut impl Write, state: &ScreenState) {
+    write!(
+        stdout,
+        "{}\r\n",
+        components::search_line(&state.mode, &state.search_term)
+    )
+    .unwrap();
 }
 
-fn write_search_line(stdout: &mut impl Write, state: &ScreenState) {
-    write!(stdout, "{}\r\n", components::search_line(&state.mode)).unwrap();
-}
-
-fn write_list_items<W: Write>(
-    stdout: &mut W,
-    projects_list: &Vec<String>,
-    selected_item_index: usize,
-) {
-    projects_list
+fn render_list(stdout: &mut impl Write, state: &ScreenState) {
+    state
+        .projects
         .iter()
         .enumerate()
         .map(|(i, label)| {
-            let selected = i == selected_item_index;
+            let selected = i == state.selected_project_index;
             components::selectable_list_item(selected, label)
         })
         .for_each(|list_item| {
@@ -150,27 +169,33 @@ fn write_list_items<W: Write>(
         });
 }
 
-fn write_safe_area<W: Write>(stdout: &mut W, num_buffer_lines: u16) {
+fn render_safe_area<W: Write>(stdout: &mut W, num_buffer_lines: u16) {
     for _n in 0..num_buffer_lines {
         write!(stdout, "\n\r").unwrap();
     }
 }
 
+// rendering
+// -------------------------
+// components
+
 mod components {
     use super::UIMode;
 
-    pub fn search_line(mode: &UIMode) -> String {
+    pub fn search_line(mode: &UIMode, search_term: &String) -> String {
+        let search_term = if search_term.len() > 0 {
+            search_term.clone()
+        } else {
+            format!(
+                "{}(press i to search){}",
+                termion::color::Fg(termion::color::LightBlack),
+                termion::color::Fg(termion::color::Reset)
+            )
+        };
+
         match mode {
-            UIMode::Normal => {
-                format!(
-                    "  [N] {}(press i to search){}",
-                    termion::color::Fg(termion::color::LightBlack),
-                    termion::color::Fg(termion::color::Reset)
-                )
-            }
-            UIMode::Search(term) => {
-                format!("  [S] {}", term,)
-            }
+            UIMode::Normal => format!("  [n] {}", search_term),
+            UIMode::Insert => format!("  [i] {}", search_term),
         }
     }
 
