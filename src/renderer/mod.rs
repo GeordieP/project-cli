@@ -62,7 +62,10 @@ pub fn start() {
             UIMode::Normal => match c.unwrap() {
                 Key::Char('k') | Key::Up => move_up_list(&mut state),
                 Key::Char('j') | Key::Down => move_down_list(&mut state),
-                Key::Char('i') | Key::Char('s') => search_for(&mut state, "".to_string()),
+                Key::Char('i') | Key::Char('s') => {
+                    let term = state.search_term.clone();
+                    search_for(&mut state, term)
+                }
                 Key::Char('q') => {
                     write!(stdout, "{}", termion::cursor::Show).unwrap();
                     break;
