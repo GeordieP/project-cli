@@ -12,8 +12,8 @@ pub struct ScreenState {
     mode: UIMode,
     search_term: String,
     selected_project_index: usize,
+    original_projects: Vec<String>,
     projects: Vec<String>,
-    filtered_projects: Vec<String>,
 }
 
 impl ScreenState {
@@ -29,8 +29,8 @@ impl ScreenState {
             mode: UIMode::Normal,
             search_term: "".to_string(),
             selected_project_index: 0,
-            filtered_projects: projects.clone(),
-            projects,
+            projects: projects.clone(),
+            original_projects: projects,
         }
     }
 }
@@ -135,16 +135,16 @@ fn search_for(state: &mut ScreenState, search_term: String) {
     state.search_term = search_term;
     filter_projects(state);
 
-    if state.filtered_projects.len() == 0 {
+    if state.projects.len() == 0 {
         state.selected_project_index = 0;
-    } else if state.selected_project_index >= state.filtered_projects.len() {
-        state.selected_project_index = state.filtered_projects.len() - 1;
+    } else if state.selected_project_index >= state.projects.len() {
+        state.selected_project_index = state.projects.len() - 1;
     }
 }
 
 fn filter_projects(state: &mut ScreenState) {
-    state.filtered_projects = state
-        .projects
+    state.projects = state
+        .original_projects
         .iter()
         .filter_map(|project| match project.contains(&state.search_term) {
             true => Some(project.clone()),
@@ -190,7 +190,7 @@ fn render_search(stdout: &mut impl Write, state: &ScreenState) {
 
 fn render_list(stdout: &mut impl Write, state: &ScreenState) {
     state
-        .filtered_projects
+        .projects
         .iter()
         .enumerate()
         .map(|(i, label)| {
