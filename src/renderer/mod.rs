@@ -191,20 +191,31 @@ mod components {
     use super::UIMode;
 
     pub fn search_line(mode: &UIMode, search_term: &String) -> String {
-        let search_term = if search_term.len() > 0 {
-            search_term.clone()
+        let mode_indicator = if let UIMode::Insert = mode { "i" } else { "n" };
+
+        let search_term = if search_term.len() == 0 {
+            match mode {
+                UIMode::Insert => {
+                    format!(
+                        "{}type to search{}",
+                        termion::color::Fg(termion::color::LightBlack),
+                        termion::color::Fg(termion::color::Reset)
+                    )
+                }
+
+                UIMode::Normal => {
+                    format!(
+                        "{}press i to search{}",
+                        termion::color::Fg(termion::color::LightBlack),
+                        termion::color::Fg(termion::color::Reset)
+                    )
+                }
+            }
         } else {
-            format!(
-                "{}(press i to search){}",
-                termion::color::Fg(termion::color::LightBlack),
-                termion::color::Fg(termion::color::Reset)
-            )
+            search_term.clone()
         };
 
-        match mode {
-            UIMode::Normal => format!("  [n] {}", search_term),
-            UIMode::Insert => format!("  [i] {}", search_term),
-        }
+        format!("  [{}] {}", mode_indicator, search_term)
     }
 
     pub fn selectable_list_item(selected: bool, list_item_label: &str) -> String {
