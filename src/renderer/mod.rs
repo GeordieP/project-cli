@@ -17,14 +17,7 @@ pub struct ScreenState {
 }
 
 impl ScreenState {
-    pub fn new() -> Self {
-        let projects = vec![
-            "one".to_string(),
-            "two".to_string(),
-            "three".to_string(),
-            "four".to_string(),
-        ];
-
+    pub fn new(projects: Vec<String>) -> Self {
         ScreenState {
             mode: UIMode::Normal,
             search_term: "".to_string(),
@@ -39,7 +32,7 @@ impl ScreenState {
 // -------------------------
 // pub
 
-pub fn start() {
+pub fn start(state: &mut ScreenState) {
     // Initialize 'em all.
     let stdout = stdout();
     let mut stdout = stdout.lock().into_raw_mode().unwrap();
@@ -58,17 +51,16 @@ pub fn start() {
     write!(stdout, "{}", termion::cursor::Hide).unwrap();
 
     // render initial state
-    let mut state = ScreenState::new();
     render_state(&mut stdout, &state, initial_cursor_pos);
 
     for c in stdin.keys() {
-        match &state.mode {
+        match state.mode {
             UIMode::Normal => match c.unwrap() {
-                Key::Char('k') | Key::Up => move_up_list(&mut state),
-                Key::Char('j') | Key::Down => move_down_list(&mut state),
+                Key::Char('k') | Key::Up => move_up_list(state),
+                Key::Char('j') | Key::Down => move_down_list(state),
                 Key::Char('i') | Key::Char('s') => {
                     let term = state.search_term.clone();
-                    search_for(&mut state, term)
+                    search_for(state, term)
                 }
                 Key::Char('q') => {
                     write!(stdout, "{}", termion::cursor::Show).unwrap();
@@ -77,18 +69,18 @@ pub fn start() {
                 _ => {}
             },
             UIMode::Insert => match c.unwrap() {
-                Key::Esc => normal_mode(&mut state),
+                Key::Esc => normal_mode(state),
                 Key::Backspace => {
                     let mut new_term = state.search_term.clone();
                     if new_term.len() > 0 {
                         new_term.truncate(&state.search_term.len() - 1);
                     }
 
-                    search_for(&mut state, new_term);
+                    search_for(state, new_term);
                 }
                 Key::Char(chr) => {
                     let new_term = format!("{}{}", &state.search_term, chr);
-                    search_for(&mut state, new_term);
+                    search_for(state, new_term);
                 }
                 _ => {}
             },
